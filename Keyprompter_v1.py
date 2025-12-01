@@ -1,5 +1,3 @@
-# 常に全面に来るバージョン
-
 import tkinter as tk
 from tkinter import font as tkFont
 from pynput import keyboard, mouse
@@ -149,7 +147,6 @@ def extract_command():
     global last_command_display
     joined = ''.join(command_buffer)
     last_found = -1
-    # setは順序なしだが、ここでは「最後に出現した開始位置」を見るため順序依存なし
     for cmd in registered_commands:
         idx = joined.rfind(cmd)
         if idx != -1 and idx >= last_found:
@@ -175,15 +172,20 @@ def _handle_key_press(pkey):
         # vkのフォールバック（必要最小限、外観変更なし）
         elif hasattr(pkey, 'vk'):
             key_name = {
-                191: '/',  # Slash
+                191: '/',   # Slash
                 220: '\\',  # Backslash
-                219: '[',  # [
-                221: ']',  # ]
+                219: '[',   # [
+                221: ']',   # ]
             }.get(pkey.vk, '')
 
         if key_name:
             # Ctrl単独 + 制御文字の表示（仕様準拠）
-            if 'ctrl' in modifier_keys and len(modifier_keys) == 1 and len(key_name) == 1 and ord(key_name) < 32:
+            if (
+                'ctrl' in modifier_keys
+                and len(modifier_keys) == 1
+                and len(key_name) == 1
+                and ord(key_name) < 32
+            ):
                 display_char = chr(ord(key_name) + 64)
                 key_name = display_char
                 shift_text = _format_modifiers(repr(display_char)[1:-1])
@@ -201,7 +203,6 @@ def _handle_key_press(pkey):
                 # Ctrlが含まれていれば追記（上書きではなく併記）
                 if 'ctrl' in modifier_keys and not shift_text.startswith("Ctrl"):
                     label = repr(key_name)[1:-1] if key_name else ''
-                    # 既にShiftが付いている場合も _format_modifiers でCtrl+Shift+...の順に揃える
                     shift_text = _format_modifiers(label)
 
             key_history.append((key_name, shift_text))
@@ -252,9 +253,9 @@ def _handle_mouse_click(x, y, button, pressed):
         return
     try:
         label = {
-            button.left: "Left Click",
-            button.right: "Right Click",
-            button.middle: "Middle Click"
+            mouse.Button.left: "Left Click",
+            mouse.Button.right: "Right Click",
+            mouse.Button.middle: "Middle Click"
         }.get(button, str(button))
         key_history.append((label, ""))
     except Exception as e:
@@ -329,3 +330,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
