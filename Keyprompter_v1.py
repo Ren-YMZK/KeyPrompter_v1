@@ -77,18 +77,22 @@ def update_canvas():
     visible_buffer = buffer[-n:]
     visible_shift = shift_exp_ary[-n:]
 
-    # 各キー幅を計算
-    widths = [font_large.measure(key_text + " ")
-              for key_text in visible_buffer]
+    # 各キーごとの幅を、Shift補足とキー本体のうち大きい方で確保
+    widths = [
+        max(
+            font_large.measure(key_text + " "),
+            font_small.measure(shift_text + " ")
+        ) + 10  # 余白を追加
+        for shift_text, key_text in zip(visible_shift, visible_buffer)
+    ]
     total_width = sum(widths)
     x = canvas_width - 20 - total_width
 
-    # 各キーとShift表示を描画
     for i, (shift_text, key_text) in enumerate(zip(visible_shift, visible_buffer)):
         w = widths[i]
         # 上段: Shift 表示
         canvas.create_text(
-            x + w/2, 20,
+            x + w / 2, 20,
             text=shift_text,
             anchor='center',
             font=font_small,
@@ -97,7 +101,7 @@ def update_canvas():
         # 下段: キー表示
         color = 'blue' if i == len(visible_buffer) - 1 else 'black'
         canvas.create_text(
-            x + w/2, 55,
+            x + w / 2, 55,
             text=key_text + " ",
             anchor='center',
             font=font_large,
@@ -174,5 +178,6 @@ def on_release(key):
 # リスナー開始
 listener = keyboard.Listener(on_press=on_press, on_release=on_release)
 listener.start()
+
 # メインループ
 root.mainloop()
