@@ -2,11 +2,12 @@ import tkinter as tk
 from tkinter import font as tkFont
 from pynput import keyboard
 from itertools import groupby
+from collections import deque
 
 # 特殊キーの表示マッピング
 special_keys = {
-    "enter": "↩︎", "esc": "Esc", "backspace": "🔙", "space": "␣",
-    "tab": "➡︎", "home": "Home", "end": "End",
+    "enter": "Enter", "esc": "Esc", "backspace": "Backspace", "space": "␣",
+    "tab": "Tab", "home": "Home", "end": "End",
     "page_up": "[Page Up]", "page_down": "[Page Down]",
     "up": "↑", "down": "↓", "left": "←", "right": "→",
     "insert": "Insert", "delete": "Delete"
@@ -32,7 +33,9 @@ font_large = tkFont.Font(family="Helvetica", size=30)
 
 # 状態変数
 modifier_keys = set()
-key_history = []  # [(key_text, shift_text)]
+
+MAX_HISTORY_SIZE = 100
+key_history = deque(maxlen=MAX_HISTORY_SIZE)  # 最大100件保持
 
 # キー履歴の圧縮処理
 
@@ -54,8 +57,8 @@ def update_canvas():
     visible = compress_key_history(key_history)[-30:]
 
     widths = [
-        max(font_large.measure(k), font_small.measure(s or ""))
-        + 10 for k, s in visible
+        max(font_large.measure(k), font_small.measure(s or "")) + 10
+        for k, s in visible
     ]
     total_width = sum(widths)
     x = canvas_width - total_width - 10
