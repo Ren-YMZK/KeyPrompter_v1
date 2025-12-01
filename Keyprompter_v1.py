@@ -92,7 +92,7 @@ def update_canvas():
             font=font_cmd,
             anchor="w",
             fill="#444444",
-            tags="command_text"  # タグ追加
+            tags="command_text"
         )
         canvas.tag_bind("command_text", "<Button-1>",
                         copy_command_to_clipboard)
@@ -114,13 +114,24 @@ def extract_command():
 def on_press(key):
     global key_history, command_buffer
     try:
+        key_name = ''
+        shift_text = ''
         if hasattr(key, 'char') and key.char:
-            raw = key.char
-            shift_text = ''
-            key_name = raw
-            if 'ctrl' in modifier_keys and len(modifier_keys) == 1 and ord(raw) <= 26:
-                key_name = chr(ord(raw.upper()) + 64)
-                shift_text = f"Ctrl+{key_name}"
+            key_name = key.char
+        elif hasattr(key, 'vk'):
+            # fallback for special keys like Ctrl+/
+            key_name = {
+                191: '/',  # Slash
+                220: '\\',  # Backslash
+                219: '[',  # [
+                221: ']',  # ]
+            }.get(key.vk, '')
+
+        if key_name:
+            if 'ctrl' in modifier_keys and len(modifier_keys) == 1 and ord(key_name) < 32:
+                display_char = chr(ord(key_name) + 64)
+                key_name = display_char
+                shift_text = f"Ctrl+{repr(display_char)[1:-1]}"
             else:
                 if 'shift' in modifier_keys:
                     if key_name in shift_symbols:
@@ -131,7 +142,8 @@ def on_press(key):
                     else:
                         shift_text = "Shift"
                 if 'ctrl' in modifier_keys:
-                    shift_text = f"Ctrl+{key_name}"
+                    shift_text = f"Ctrl+{repr(key_name)[1:-1]}"
+
             key_history.append((key_name, shift_text))
             command_buffer.append(key_name)
 
@@ -139,7 +151,6 @@ def on_press(key):
             name = key.name
             if name in special_keys:
                 label = special_keys[name]
-                shift_text = ''
                 if 'ctrl' in modifier_keys:
                     shift_text = f"Ctrl+{label}"
                 elif 'shift' in modifier_keys:
