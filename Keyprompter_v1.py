@@ -19,7 +19,7 @@ shift_symbols = {
 }
 
 registered_commands = {
-    "ls", "curl", "ping", "cd", "mkdir", "rm", "whoami", "git", "python"
+    "ls", "curl", "cd", "mkdir", "rm", "git", "python"
 }
 
 root = tk.Tk()
@@ -58,7 +58,7 @@ def update_canvas():
         for k, s in visible
     ]
     total_width = sum(widths)
-    x = canvas_width - total_width - 10  # ✅ 最新履歴が右端に来るように
+    x = canvas_width - total_width - 10  # 最新履歴を右端に表示
 
     for i, (key_text, shift_text) in enumerate(visible):
         w = widths[i]
@@ -82,14 +82,15 @@ def update_canvas():
 
 def extract_command():
     global last_command_display
-    joined = ''.join(command_buffer).replace("␣", " ")
+    joined = ''.join(command_buffer)
     last_found = -1
+    matched_cmd = ""
     for cmd in registered_commands:
         idx = joined.rfind(cmd)
         if idx != -1 and idx >= last_found:
             last_found = idx
-    last_command_display = joined[last_found:].strip(
-    ) if last_found != -1 else ""
+            matched_cmd = cmd
+    last_command_display = joined[last_found:] if last_found != -1 else ""
 
 
 def on_press(key):
@@ -135,6 +136,8 @@ def on_press(key):
                 elif name == "backspace":
                     if command_buffer:
                         command_buffer.pop()
+                elif name == "space":
+                    command_buffer.append(" ")
             elif name.startswith(('shift', 'ctrl', 'alt', 'cmd')):
                 modifier_keys.add(name.split('_')[0])
     except Exception:
