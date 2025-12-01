@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import font as tkFont
 from pynput import keyboard, mouse
-from itertools import groupby
 from collections import deque
+from itertools import groupby
 
 # 特殊キーの表示マッピング
 special_keys = {
@@ -20,6 +20,11 @@ shift_symbols = {
     "`": "@", "*": ":", "|": "\\", "{": "[", "}": "]",
 }
 
+# 登録済みコマンド
+registered_commands = {
+    "ls", "curl", "ping", "cd", "mkdir", "rm", "whoami", "git", "python"
+}
+
 # GUI初期設定
 root = tk.Tk()
 root.title("Key + Mouse Prompter")
@@ -33,11 +38,11 @@ font_large = tkFont.Font(family="Helvetica", size=30)
 
 # 状態変数
 modifier_keys = set()
+key_history = deque(maxlen=100)
+command_buffer = []  # コマンド構築用（Backspace対応）
+last_command_display = ""  # 中央表示用
 
-MAX_HISTORY_SIZE = 100
-key_history = deque(maxlen=MAX_HISTORY_SIZE)  # 最大100件保持
-
-# キー履歴の圧縮処理
+# 履歴表示圧縮
 
 
 def compress_key_history(history):
@@ -49,7 +54,7 @@ def compress_key_history(history):
         result.append((key_label, shift_label))
     return result
 
-# Canvas更新処理
+# Canvas描画更新
 
 
 def update_canvas():
@@ -72,22 +77,50 @@ def update_canvas():
                            font=font_large, fill=color)
         x += w
 
+    if last_command_display:
+        canvas.create_text(
+            canvas_width / 2, canvas_height / 2,
+            text=last_command_display,
+            font=tkFont.Font(family="Helvetica", size=20, weight="bold"),
+            fill="red"
+        )
+
+# コマンド検出ロジック（Enter時）
+
+
+def extract_command():
+    global last_command_display
+    joined = ''.join(command_buffer)
+    # スペース記号を変換
+    joined = joined.replace("␣", " ")
+    # 最後に登場した登録コマンドを探す（位置付き）
+    last_found = -1
+    matched_cmd = ""
+    for cmd in registered_commands:
+        idx = joined.rfind(cmd)
+        if idx != -1 and idx >= last_found:
+            last_found = idx
+            matched_cmd = cmd
+
+    if last_found != -1:
+        last_command_display = joined[last_found:].strip()
+    else:
+        last_command_display = ""
+
 # キー押下処理
 
 
 def on_press(key):
-    global key_history
+    global key_history, command_buffer
     try:
         if hasattr(key, 'char') and key.char:
             raw = key.char
             shift_text = ''
             key_name = raw
 
-            # Ctrl + A〜Z (制御文字対応)
             if 'ctrl' in modifier_keys and len(modifier_keys) == 1 and ord(raw) <= 26:
-                letter = chr(ord(raw.upper()) + 64)
-                key_name = letter
-                shift_text = f"Ctrl+{letter}"
+                key_name = chr(ord(raw.upper()) + 64)
+                shift_text = f"Ctrl+{key_name}"
             else:
                 if 'shift' in modifier_keys:
                     if key_name in shift_symbols:
@@ -101,6 +134,7 @@ def on_press(key):
                     shift_text = f"Ctrl+{key_name}"
 
             key_history.append((key_name, shift_text))
+            command_buffer.append(key_name)
 
         elif hasattr(key, 'name'):
             name = key.name
@@ -115,11 +149,21 @@ def on_press(key):
                     shift_text = '+'.join(modifier_keys) + f"+{label}"
 
                 key_history.append((label, shift_text))
+
+                if name == "enter":
+                    extract_command()
+                    command_buffer.clear()
+                elif name == "backspace":
+                    if command_buffer:
+                        command_buffer.pop()
+
             elif name.startswith(('shift', 'ctrl', 'alt', 'cmd')):
                 base = name.split('_')[0]
                 modifier_keys.add(base)
+
     except Exception:
         pass
+
     update_canvas()
 
 # キー離上処理
@@ -139,24 +183,18 @@ def on_release(key):
 
 def on_click(x, y, button, pressed):
     if not pressed:
-        return  # 押したときのみ反応
-
-    button_map = {
-        mouse.Button.left: "Left Click",
-        mouse.Button.right: "Right Click",
-        mouse.Button.middle: "Middle Click"
-    }
-
-    label = button_map.get(button, str(button))
+        return
+    label = {
+        button.left: "Left Click",
+        button.right: "Right Click",
+        button.middle: "Middle Click"
+    }.get(button, str(button))
     key_history.append((label, ""))
     update_canvas()
 
 
-# リスナー開始
-keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
-keyboard_listener.start()
-
-mouse_listener = mouse.Listener(on_click=on_click)
-mouse_listener.start()
+# リスナー起動
+keyboard.Listener(on_press=on_press, on_release=on_release).start()
+mouse.Listener(on_click=on_click).start()
 
 root.mainloop()
