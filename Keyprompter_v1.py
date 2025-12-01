@@ -3,174 +3,122 @@ from tkinter import font as tkFont
 from pynput import keyboard
 from itertools import groupby
 
-# 特殊キーのマッピング
+# 特殊キーの表示マッピング
 special_keys = {
-    "enter": "↩︎",
-    "esc": "Esc",
-    "backspace": "🔙",
-    "space": "␣",
-    "tab": "➡︎",
-    "home": "Home",
-    "end": "End",
-    "page_up": "[Page Up]",
-    "page_down": "[Page Down]",
-    "up": "↑",
-    "down": "↓",
-    "left": "←",
-    "right": "→",
-    "insert": "Insert",
-    "delete": "Delete",
+    "enter": "↩︎", "esc": "Esc", "backspace": "🔙", "space": "␣",
+    "tab": "➡︎", "home": "Home", "end": "End",
+    "page_up": "[Page Up]", "page_down": "[Page Down]",
+    "up": "↑", "down": "↓", "left": "←", "right": "→",
+    "insert": "Insert", "delete": "Delete"
 }
-special_keys_values = list(special_keys.values())
 
-# 連続する同じキーを圧縮する関数
-
-
-def compress_sequence(arr):
-    result = []
-    for key, group in groupby(arr):
-        count = len(list(group))
-        if (key.isalpha() or key.isdigit()) and key not in special_keys_values:
-            for _ in range(count):
-                result.append(" " + key)
-        else:
-            if count > 1:
-                result.append(f" {key} ×{count}  ")
-            else:
-                result.append(" " + key)
-    return result
-
-
-# Tkinter ウィンドウのセットアップ
-root = tk.Tk()
-root.title("Key Prompter")
-canvas_width = 800
-canvas_height = 80
-root.geometry(f"{canvas_width}x{canvas_height}")
-
-canvas = tk.Canvas(root, width=canvas_width, height=canvas_height)
-canvas.pack()
-
-# フォント設定
-font_small = tkFont.Font(family="Helvetica", size=15)
-font_large = tkFont.Font(family="Helvetica", size=30)
-
-# グローバル変数
-modifier_keys = set()
-current_keys = []
-shift_exp_ary = []
-
-# Shift+数字記号のマッピング
-numshift_src = {
+# Shift+記号のマッピング
+shift_symbols = {
     "!": "1", '"': "2", "#": "3", "$": "4", "%": "5", "&": "6", "'": "7",
     "(": "8", ")": "9", "<": ",", ">": ".", "?": "/", "+": ";", "=": "-",
     "`": "@", "*": ":", "|": "\\", "{": "[", "}": "]",
 }
 
-# ラベル更新処理 (Canvas 描画)
+# GUI初期設定
+root = tk.Tk()
+root.title("Key Prompter")
+canvas_width, canvas_height = 800, 80
+canvas = tk.Canvas(root, width=canvas_width, height=canvas_height, bg='white')
+canvas.pack()
+root.geometry(f"{canvas_width}x{canvas_height}")
+
+font_small = tkFont.Font(family="Helvetica", size=15)
+font_large = tkFont.Font(family="Helvetica", size=30)
+
+# 状態変数
+modifier_keys = set()
+key_history = []  # [(key_text, shift_text)]
+
+# キー履歴の圧縮処理
+
+
+def compress_key_history(history):
+    result = []
+    for (k, s), group in groupby(history):
+        count = len(list(group))
+        key_label = f"{k} ×{count}" if count > 1 else k
+        shift_label = s if count == 1 else (f"{s} ×{count}" if s else "")
+        result.append((key_label, shift_label))
+    return result
+
+# Canvas更新処理
 
 
 def update_canvas():
     canvas.delete("all")
-    buffer = compress_sequence(current_keys)
-    n = 39  # 表示する直近キー数
-    visible_buffer = buffer[-n:]
-    visible_shift = shift_exp_ary[-n:]
+    visible = compress_key_history(key_history)[-30:]
 
-    # 各キーごとの幅を、Shift補足とキー本体のうち大きい方で確保
     widths = [
-        max(
-            font_large.measure(key_text + " "),
-            font_small.measure(shift_text + " ")
-        ) + 10  # 余白を追加
-        for shift_text, key_text in zip(visible_shift, visible_buffer)
+        max(font_large.measure(k), font_small.measure(s or ""))
+        + 10 for k, s in visible
     ]
     total_width = sum(widths)
-    x = canvas_width - 20 - total_width
+    x = canvas_width - total_width - 10
 
-    for i, (shift_text, key_text) in enumerate(zip(visible_shift, visible_buffer)):
+    for i, (key_text, shift_text) in enumerate(visible):
         w = widths[i]
-        # 上段: Shift 表示
-        canvas.create_text(
-            x + w / 2, 20,
-            text=shift_text,
-            anchor='center',
-            font=font_small,
-            fill='green'
-        )
-        # 下段: キー表示
-        color = 'blue' if i == len(visible_buffer) - 1 else 'black'
-        canvas.create_text(
-            x + w / 2, 55,
-            text=key_text + " ",
-            anchor='center',
-            font=font_large,
-            fill=color
-        )
+        canvas.create_text(x + w/2, 20, text=shift_text,
+                           font=font_small, fill='green')
+        color = 'blue' if i == len(visible) - 1 else 'black'
+        canvas.create_text(x + w/2, 55, text=key_text,
+                           font=font_large, fill=color)
         x += w
 
-# キー押下時の処理
+# キー押下処理
 
 
 def on_press(key):
-    global current_keys, shift_exp_ary
+    global key_history
     try:
         if hasattr(key, 'char') and key.char:
             raw = key.char
-            if 'ctrl' in modifier_keys and len(modifier_keys) == 1 and ord(raw) < 32:
-                letter = chr(ord(raw) + 64)
-                combined = 'ctrl+' + letter
-                current_keys.append(combined)
-                shift_exp_ary.append('')
-            else:
-                key_name = raw.lower()
-                if modifier_keys:
-                    if modifier_keys == {'shift'} and key_name.isalpha():
-                        key_name = key_name.upper()
-                        combined = key_name
-                        shift_exp_ary.append('')
-                    elif modifier_keys == {'shift'} and key_name in numshift_src:
-                        shift_exp = '+'.join(modifier_keys) + \
-                            '+' + numshift_src[key_name]
-                        combined = key_name
-                        shift_exp_ary.append(shift_exp)
-                    else:
-                        combined = '+'.join(modifier_keys) + f"+{key_name}"
-                        shift_exp_ary.append('')
-                    current_keys.append(combined)
-                else:
-                    current_keys.append(key_name)
-                    shift_exp_ary.append('')
+            shift_text = ''
+
+            # Ctrl + A〜Z (制御文字の可視化)
+            if 'ctrl' in modifier_keys and len(modifier_keys) == 1 and ord(raw) <= 26:
+                letter = chr(ord(raw.upper()) + 64)  # '\x03' → 'C'
+                key_history.append((letter, 'Ctrl'))
+                update_canvas()
+                return
+
+            key_name = raw.lower()
+            if modifier_keys == {'shift'}:
+                if key_name in shift_symbols:
+                    shift_text = f"Shift+{shift_symbols[key_name]}"
+                elif key_name.isalpha():
+                    key_name = key_name.upper()
+            elif modifier_keys:
+                shift_text = '+'.join(modifier_keys)
+
+            key_history.append((key_name, shift_text))
+
         elif hasattr(key, 'name'):
             name = key.name
-            mapped = special_keys.get(name)
-            if mapped:
-                combined = '+'.join(modifier_keys) + \
-                    f"+{mapped}" if modifier_keys else mapped
-                current_keys.append(combined)
-                shift_exp_ary.append('')
-            elif name in [
-                'shift', 'shift_l', 'shift_r',
-                'ctrl', 'ctrl_l', 'ctrl_r',
-                'alt', 'alt_l', 'alt_r',
-                'cmd', 'cmd_l', 'cmd_r'
-            ]:
+            if name in special_keys:
+                label = special_keys[name]
+                prefix = '+'.join(modifier_keys)
+                key_history.append((label, prefix))
+            elif name.startswith(('shift', 'ctrl', 'alt', 'cmd')):
                 base = name.split('_')[0]
                 modifier_keys.add(base)
-    except AttributeError:
+    except Exception:
         pass
     update_canvas()
 
-# キー離上時の処理
+# キー離上処理
 
 
 def on_release(key):
     try:
         if hasattr(key, 'name'):
             base = key.name.split('_')[0]
-            if base in modifier_keys:
-                modifier_keys.remove(base)
-    except AttributeError:
+            modifier_keys.discard(base)
+    except Exception:
         pass
     update_canvas()
 
@@ -178,6 +126,4 @@ def on_release(key):
 # リスナー開始
 listener = keyboard.Listener(on_press=on_press, on_release=on_release)
 listener.start()
-
-# メインループ
 root.mainloop()
