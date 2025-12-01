@@ -35,8 +35,6 @@ modifier_keys = set()
 key_history = []  # [(key_text, shift_text)]
 
 # キー履歴の圧縮処理
-
-
 def compress_key_history(history):
     result = []
     for (k, s), group in groupby(history):
@@ -47,8 +45,6 @@ def compress_key_history(history):
     return result
 
 # Canvas更新処理
-
-
 def update_canvas():
     canvas.delete("all")
     visible = compress_key_history(key_history)[-30:]
@@ -62,16 +58,12 @@ def update_canvas():
 
     for i, (key_text, shift_text) in enumerate(visible):
         w = widths[i]
-        canvas.create_text(x + w/2, 20, text=shift_text,
-                           font=font_small, fill='green')
+        canvas.create_text(x + w/2, 20, text=shift_text, font=font_small, fill='green')
         color = 'blue' if i == len(visible) - 1 else 'black'
-        canvas.create_text(x + w/2, 55, text=key_text,
-                           font=font_large, fill=color)
+        canvas.create_text(x + w/2, 55, text=key_text, font=font_large, fill=color)
         x += w
 
 # キー押下処理
-
-
 def on_press(key):
     global key_history
     try:
@@ -86,12 +78,15 @@ def on_press(key):
                 update_canvas()
                 return
 
-            key_name = raw.lower()
-            if modifier_keys == {'shift'}:
+            key_name = raw
+            if 'shift' in modifier_keys:
                 if key_name in shift_symbols:
                     shift_text = f"Shift+{shift_symbols[key_name]}"
                 elif key_name.isalpha():
+                    shift_text = f"Shift+{key_name.upper()}"
                     key_name = key_name.upper()
+                else:
+                    shift_text = "Shift"
             elif modifier_keys:
                 shift_text = '+'.join(modifier_keys)
 
@@ -111,8 +106,6 @@ def on_press(key):
     update_canvas()
 
 # キー離上処理
-
-
 def on_release(key):
     try:
         if hasattr(key, 'name'):
@@ -121,7 +114,6 @@ def on_release(key):
     except Exception:
         pass
     update_canvas()
-
 
 # リスナー開始
 listener = keyboard.Listener(on_press=on_press, on_release=on_release)
