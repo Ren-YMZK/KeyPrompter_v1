@@ -18,7 +18,6 @@ shift_symbols = {
     "`": "@", "*": ":", "|": "\\", "{": "[", "}": "]",
 }
 
-# 認識対象コマンド（スペース付きで検出）
 registered_commands = {
     "ls ", "cd ", "pwd ", "cp ", "mv ", "rm ", "mkdir ", "touch ", "find ",
     "stat ", "tree ", "top ", "htop ", "free ", "df ", "du ", "uptime ", "whoami ",
@@ -31,7 +30,6 @@ registered_commands = {
     "sftp ", "alias ", "history ", "clear ", "echo ", "date ", "time ", "man ",
     "which "
 }
-
 
 root = tk.Tk()
 root.title("Key Visualizer")
@@ -58,6 +56,12 @@ def compress_key_history(history):
         shift_label = s if count == 1 else (f"{s} ×{count}" if s else "")
         result.append((key_label, shift_label))
     return result
+
+
+def copy_command_to_clipboard(event=None):
+    if last_command_display:
+        root.clipboard_clear()
+        root.clipboard_append(last_command_display)
 
 
 def update_canvas():
@@ -87,8 +91,11 @@ def update_canvas():
             text=f"直前のコマンド: {last_command_display}",
             font=font_cmd,
             anchor="w",
-            fill="#444444"
+            fill="#444444",
+            tags="command_text"  # タグ追加
         )
+        canvas.tag_bind("command_text", "<Button-1>",
+                        copy_command_to_clipboard)
 
 
 def extract_command():
@@ -97,7 +104,7 @@ def extract_command():
     last_found = -1
     matched_cmd = ""
     for cmd in registered_commands:
-        idx = joined.rfind(cmd)  # cmd には末尾スペースを含む
+        idx = joined.rfind(cmd)
         if idx != -1 and idx >= last_found:
             last_found = idx
             matched_cmd = cmd
