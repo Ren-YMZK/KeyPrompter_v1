@@ -18,9 +18,20 @@ shift_symbols = {
     "`": "@", "*": ":", "|": "\\", "{": "[", "}": "]",
 }
 
+# 認識対象コマンド（スペース付きで検出）
 registered_commands = {
-    "ls", "curl", "cd", "mkdir", "rm", "git", "python"
+    "ls ", "cd ", "pwd ", "cp ", "mv ", "rm ", "mkdir ", "touch ", "find ",
+    "stat ", "tree ", "top ", "htop ", "free ", "df ", "du ", "uptime ", "whoami ",
+    "uname ", "hostname ", "id ", "ping ", "curl ", "wget ", "nslookup ", "dig ",
+    "traceroute ", "ip ", "ifconfig ", "netstat ", "ss ", "chmod ", "chown ",
+    "sudo ", "ps ", "kill ", "killall ", "cat ", "less ", "tail ", "head ", "grep ",
+    "awk ", "sed ", "cut ", "sort ", "uniq ", "git ", "python ", "node ", "npm ",
+    "yarn ", "make ", "gcc ", "g++ ", "java ", "javac ", "apt ", "yum ", "dnf ",
+    "pacman ", "brew ", "pip ", "pip3 ", "cargo ", "ssh ", "scp ", "rsync ",
+    "sftp ", "alias ", "history ", "clear ", "echo ", "date ", "time ", "man ",
+    "which "
 }
+
 
 root = tk.Tk()
 root.title("Key Visualizer")
@@ -58,7 +69,7 @@ def update_canvas():
         for k, s in visible
     ]
     total_width = sum(widths)
-    x = canvas_width - total_width - 10  # 最新履歴を右端に表示
+    x = canvas_width - total_width - 10
 
     for i, (key_text, shift_text) in enumerate(visible):
         w = widths[i]
@@ -86,7 +97,7 @@ def extract_command():
     last_found = -1
     matched_cmd = ""
     for cmd in registered_commands:
-        idx = joined.rfind(cmd)
+        idx = joined.rfind(cmd)  # cmd には末尾スペースを含む
         if idx != -1 and idx >= last_found:
             last_found = idx
             matched_cmd = cmd
