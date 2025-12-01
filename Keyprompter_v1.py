@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import font as tkFont
 from pynput import keyboard
 from itertools import groupby
 
@@ -22,9 +23,10 @@ special_keys = {
 }
 special_keys_values = list(special_keys.values())
 
+# 連続する同じキーを圧縮する関数
+
 
 def compress_sequence(arr):
-    """連続する同じキーを圧縮する"""
     result = []
     for key, group in groupby(arr):
         count = len(list(group))
@@ -42,27 +44,20 @@ def compress_sequence(arr):
 # Tkinter ウィンドウのセットアップ
 root = tk.Tk()
 root.title("Key Prompter")
-root.geometry("800x80")
+canvas_width = 800
+canvas_height = 80
+root.geometry(f"{canvas_width}x{canvas_height}")
 
-labelshift = tk.Label(root, text="", font=("Helvetica", 15),
-                      anchor="e", justify="right", fg="green")
-labelshift.grid(row=0, column=0, columnspan=2, padx=5, pady=0, sticky="ew")
+canvas = tk.Canvas(root, width=canvas_width, height=canvas_height)
+canvas.pack()
 
-label = tk.Label(root, text="", font=("Helvetica", 30),
-                 anchor="e", justify="right", fg="black")
-label.grid(row=1, column=0, padx=0, pady=0, sticky="e")
-
-label2 = tk.Label(root, text="", font=("Helvetica", 30),
-                  anchor="e", justify="right", fg="blue")
-label2.grid(row=1, column=1, padx=0, pady=0, sticky="w")
-
-root.columnconfigure(0, weight=1)
-root.columnconfigure(1, weight=0)
+# フォント設定
+font_small = tkFont.Font(family="Helvetica", size=15)
+font_large = tkFont.Font(family="Helvetica", size=30)
 
 # グローバル変数
 modifier_keys = set()
 current_keys = []
-shift_exp = None
 shift_exp_ary = []
 
 # Shift+数字記号のマッピング
@@ -72,82 +67,100 @@ numshift_src = {
     "`": "@", "*": ":", "|": "\\", "{": "[", "}": "]",
 }
 
+# ラベル更新処理 (Canvas 描画)
 
-def update_label():
-    """現在の修飾キーと直近のキーを表示"""
+
+def update_canvas():
+    canvas.delete("all")
     buffer = compress_sequence(current_keys)
-    display_keys = "".join(buffer[-39:-1])
-    label.config(text=display_keys)
-    if buffer:
-        label2.config(text=buffer[-1] + " ")
-    labelshift.config(text=" ".join(shift_exp_ary))
+    n = 39  # 表示する直近キー数
+    visible_buffer = buffer[-n:]
+    visible_shift = shift_exp_ary[-n:]
+
+    # 各キー幅を計算
+    widths = [font_large.measure(key_text + " ")
+              for key_text in visible_buffer]
+    total_width = sum(widths)
+    x = canvas_width - 20 - total_width
+
+    # 各キーとShift表示を描画
+    for i, (shift_text, key_text) in enumerate(zip(visible_shift, visible_buffer)):
+        w = widths[i]
+        # 上段: Shift 表示
+        canvas.create_text(
+            x + w/2, 20,
+            text=shift_text,
+            anchor='center',
+            font=font_small,
+            fill='green'
+        )
+        # 下段: キー表示
+        color = 'blue' if i == len(visible_buffer) - 1 else 'black'
+        canvas.create_text(
+            x + w/2, 55,
+            text=key_text + " ",
+            anchor='center',
+            font=font_large,
+            fill=color
+        )
+        x += w
+
+# キー押下時の処理
 
 
 def on_press(key):
-    """キーが押されたときの処理"""
-    global current_keys, shift_exp, shift_exp_ary
-
+    global current_keys, shift_exp_ary
     try:
-        # --- ここから修正: Ctrl＋アルファベット の制御文字を変換 ---
         if hasattr(key, 'char') and key.char:
             raw = key.char
-            # Ctrl 押下時に返ってくる制御文字 (ord < 32) を A-Z にマッピング
             if 'ctrl' in modifier_keys and len(modifier_keys) == 1 and ord(raw) < 32:
-                # '\x01'→'A', '\x02'→'B', ... '\x03'→'C' ...
                 letter = chr(ord(raw) + 64)
-                combined_key = "ctrl+" + letter
-                current_keys.append(combined_key)
-                shift_exp_ary.append("  ")
+                combined = 'ctrl+' + letter
+                current_keys.append(combined)
+                shift_exp_ary.append('')
             else:
-                # それ以外は従来の処理
                 key_name = raw.lower()
                 if modifier_keys:
-                    if modifier_keys == {"shift"} and key_name.isalpha():
+                    if modifier_keys == {'shift'} and key_name.isalpha():
                         key_name = key_name.upper()
-                        shift_exp = "  "
-                        combined_key = key_name
-                    elif modifier_keys == {"shift"} and key_name in numshift_src:
-                        tmp = key_name
-                        shift_exp = "+".join(modifier_keys) + \
-                            "+" + numshift_src[tmp]
-                        combined_key = tmp
+                        combined = key_name
+                        shift_exp_ary.append('')
+                    elif modifier_keys == {'shift'} and key_name in numshift_src:
+                        shift_exp = '+'.join(modifier_keys) + \
+                            '+' + numshift_src[key_name]
+                        combined = key_name
+                        shift_exp_ary.append(shift_exp)
                     else:
-                        combined_key = "+".join(modifier_keys) + f"+{key_name}"
-                        shift_exp = "  "
-                    current_keys.append(combined_key)
-                    shift_exp_ary.append(shift_exp)
+                        combined = '+'.join(modifier_keys) + f"+{key_name}"
+                        shift_exp_ary.append('')
+                    current_keys.append(combined)
                 else:
                     current_keys.append(key_name)
-                    shift_exp_ary.append("  ")
-        # --- ここまで修正 ---
-
-        # 特殊キー or 修飾キー
+                    shift_exp_ary.append('')
         elif hasattr(key, 'name'):
-            key_name = special_keys.get(key.name)
-            if key_name:
-                if modifier_keys:
-                    combined_key = "+".join(modifier_keys) + f"+{key_name}"
-                    current_keys.append(combined_key)
-                else:
-                    current_keys.append(key_name)
-                shift_exp_ary.append("  ")
-            elif key.name in [
-                "shift", "shift_l", "shift_r",
-                "ctrl", "ctrl_l", "ctrl_r",
-                "alt", "alt_l", "alt_r",
-                "cmd", "cmd_l", "cmd_r"
+            name = key.name
+            mapped = special_keys.get(name)
+            if mapped:
+                combined = '+'.join(modifier_keys) + \
+                    f"+{mapped}" if modifier_keys else mapped
+                current_keys.append(combined)
+                shift_exp_ary.append('')
+            elif name in [
+                'shift', 'shift_l', 'shift_r',
+                'ctrl', 'ctrl_l', 'ctrl_r',
+                'alt', 'alt_l', 'alt_r',
+                'cmd', 'cmd_l', 'cmd_r'
             ]:
-                base = key.name.split('_')[0]
+                base = name.split('_')[0]
                 modifier_keys.add(base)
-
     except AttributeError:
         pass
+    update_canvas()
 
-    update_label()
+# キー離上時の処理
 
 
 def on_release(key):
-    """キーが離されたときの処理"""
     try:
         if hasattr(key, 'name'):
             base = key.name.split('_')[0]
@@ -155,13 +168,11 @@ def on_release(key):
                 modifier_keys.remove(base)
     except AttributeError:
         pass
-
-    update_label()
+    update_canvas()
 
 
 # リスナー開始
 listener = keyboard.Listener(on_press=on_press, on_release=on_release)
 listener.start()
-
 # メインループ
 root.mainloop()
