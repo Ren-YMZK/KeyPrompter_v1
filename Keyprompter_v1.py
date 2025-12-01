@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import font as tkFont
-from pynput import keyboard
+from pynput import keyboard, mouse
 from itertools import groupby
 from collections import deque
 
@@ -22,7 +22,7 @@ shift_symbols = {
 
 # GUI初期設定
 root = tk.Tk()
-root.title("Key Prompter")
+root.title("Key + Mouse Prompter")
 canvas_width, canvas_height = 800, 80
 canvas = tk.Canvas(root, width=canvas_width, height=canvas_height, bg='white')
 canvas.pack()
@@ -134,8 +134,29 @@ def on_release(key):
         pass
     update_canvas()
 
+# マウスクリック処理
+
+
+def on_click(x, y, button, pressed):
+    if not pressed:
+        return  # 押したときのみ反応
+
+    button_map = {
+        mouse.Button.left: "Left Click",
+        mouse.Button.right: "Right Click",
+        mouse.Button.middle: "Middle Click"
+    }
+
+    label = button_map.get(button, str(button))
+    key_history.append((label, ""))
+    update_canvas()
+
 
 # リスナー開始
-listener = keyboard.Listener(on_press=on_press, on_release=on_release)
-listener.start()
+keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+keyboard_listener.start()
+
+mouse_listener = mouse.Listener(on_click=on_click)
+mouse_listener.start()
+
 root.mainloop()
