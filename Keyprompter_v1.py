@@ -88,7 +88,7 @@ def update_canvas():
     if last_command_display:
         canvas.create_text(
             20, 80,
-            text=f"直前のコマンド: {last_command_display}",
+            text=f"Previous ommand: {last_command_display}",
             font=font_cmd,
             anchor="w",
             fill="#444444",
